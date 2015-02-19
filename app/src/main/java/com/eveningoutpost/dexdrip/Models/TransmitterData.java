@@ -47,7 +47,7 @@ public class TransmitterData extends Model {
             TransmitterData transmitterData = new TransmitterData();
             transmitterData.raw_data = txData.getInt(2);
             transmitterData.filtered_data =txData.getInt(6);
-            transmitterData.sensor_battery_level = txData.getShort(10);
+            transmitterData.sensor_battery_level = txData.get(10);
             transmitterData.timestamp = new Date().getTime();
             transmitterData.uuid = UUID.randomUUID().toString();
 

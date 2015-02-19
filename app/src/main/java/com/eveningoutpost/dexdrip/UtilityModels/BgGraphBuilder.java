@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.preference.PreferenceManager;
 import android.text.format.DateFormat;
+import android.util.Log;
 
 import com.eveningoutpost.dexdrip.Models.BgReading;
 
@@ -277,6 +278,7 @@ public class BgGraphBuilder {
     public String unitized_string(double value) {
         DecimalFormat df = new DecimalFormat("#");
         df.setMaximumFractionDigits(0);
+        //Log.v("BgGraphBuilder","uinitized_string: value="+value );
         if (value >= 400) {
             return "HIGH";
         } else if (value >= 40) {
@@ -287,6 +289,7 @@ public class BgGraphBuilder {
             } else {
                 df.setMaximumFractionDigits(1);
                 df.setMinimumFractionDigits(1);
+                //Log.v("BgGraphBuilder","uinitized_string: return="+df.format(mmolConvert(value)) );
                 return df.format(mmolConvert(value));
             }
         } else {
@@ -297,4 +300,14 @@ public class BgGraphBuilder {
     public double mmolConvert(double mgdl) {
         return mgdl * Constants.MGDL_TO_MMOLL;
     }
+
+    public String unit() {
+        if(doMgdl){
+            return "mg/dl";
+        } else {
+            return "mmol";
+        }
+
+    }
+
 }

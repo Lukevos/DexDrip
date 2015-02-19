@@ -1,7 +1,6 @@
 package com.eveningoutpost.dexdrip.Models;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.provider.BaseColumns;
@@ -12,10 +11,10 @@ import com.activeandroid.annotation.Column;
 import com.activeandroid.annotation.Table;
 import com.activeandroid.query.Select;
 import com.eveningoutpost.dexdrip.Sensor;
+//import com.eveningoutpost.dexdrip.Services.DexCollectionService;
 import com.eveningoutpost.dexdrip.UtilityModels.BgSendQueue;
 import com.eveningoutpost.dexdrip.UtilityModels.Constants;
 import com.eveningoutpost.dexdrip.UtilityModels.Notifications;
-import com.eveningoutpost.dexdrip.Home;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.Expose;
@@ -29,8 +28,12 @@ import java.util.UUID;
 @Table(name = "BgReadings", id = BaseColumns._ID)
 public class BgReading extends Model {
     private final static String TAG = BgReading.class.getSimpleName();
+    //private boolean predictBG;
+    private static boolean predictBG;
+
+
     //TODO: Have these as adjustable settings!!
-    public final static double BESTOFFSET = (60000 * 0); // Assume readings are about x minutes off from actual!
+    public final static double BESTOFFSET = 0; // Assume readings are about x minutes off from actual!
 
     @Column(name = "sensor", index = true)
     public Sensor sensor;
@@ -143,19 +146,24 @@ public class BgReading extends Model {
 
     public double staticSlope() {
         double slope = (2 * this.a * this.timestamp) + this.b;
-        Log.w(TAG, "ESTIMATE SLOPE" + slope);
+        Log.w(TAG, "staticSlope: ESTIMATE SLOPE" + slope);
         return slope;
     }
 
     public static double activeSlope() {
-        BgReading bgReading = BgReading.lastNoSenssor();
+        BgReading bgReading;
+        if(predictBG) {
+            bgReading = BgReading.LastNoSensor();
+        } else {
+            bgReading = BgReading.last();
+        }
         double slope = (2 * bgReading.a * (new Date().getTime() + BESTOFFSET)) + bgReading.b;
-        Log.w(TAG, "ESTIMATE SLOPE" + slope);
+        Log.w(TAG, "activeSlope: ESTIMATE SLOPE" + slope);
         return slope;
     }
 
     public static double activePrediction() {
-        BgReading bgReading = BgReading.lastNoSenssor();
+        BgReading bgReading = BgReading.LastNoSensor();
         if (bgReading != null) {
             double currentTime = new Date().getTime();
             if (currentTime >=  bgReading.timestamp + (60000 * 7)) { currentTime = bgReading.timestamp + (60000 * 7); }
@@ -168,9 +176,9 @@ public class BgReading extends Model {
     //*******CLASS METHODS***********//
     //This one handles the filtered_data that we get with Dexbridge.
     public static BgReading create(double raw_data, double filtered_data, Context context) {
-        double selected_value = 0;
+        double selected_value;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean predictBG = prefs.getBoolean("predictBG", false);
+        predictBG = prefs.getBoolean("predictBG", false);
         BgReading bgReading = new BgReading();
         Sensor sensor = Sensor.currentSensor();
         if (sensor != null) {
@@ -231,8 +239,8 @@ public class BgReading extends Model {
                     bgReading.age_adjusted_raw_value = (selected_value/1000);
                 }
 
-                if (lastBgReading != null && lastBgReading.calibration != null) {
-                    if (lastBgReading.calibration_flag == true && ((lastBgReading.timestamp + (60000 * 20)) > bgReading.timestamp) && ((lastBgReading.calibration.timestamp + (60000 * 20)) > bgReading.timestamp)) {
+                if ( lastBgReading.calibration != null) {
+                    if (lastBgReading.calibration_flag && ((lastBgReading.timestamp + (60000 * 20)) > bgReading.timestamp) && ((lastBgReading.calibration.timestamp + (60000 * 20)) > bgReading.timestamp)) {
                         lastBgReading.calibration.rawValueOverride(BgReading.weightedAverageRaw(lastBgReading.timestamp, bgReading.timestamp, lastBgReading.calibration.timestamp, lastBgReading.age_adjusted_raw_value, bgReading.age_adjusted_raw_value), context);
                     }
                 }
@@ -304,7 +312,7 @@ public class BgReading extends Model {
 
                 BgReading lastBgReading = BgReading.last();
                 if (lastBgReading != null && lastBgReading.calibration != null) {
-                    if (lastBgReading.calibration_flag == true && ((lastBgReading.timestamp + (60000 * 20)) > bgReading.timestamp) && ((lastBgReading.calibration.timestamp + (60000 * 20)) > bgReading.timestamp)) {
+                    if (lastBgReading.calibration_flag && ((lastBgReading.timestamp + (60000 * 20)) > bgReading.timestamp) && ((lastBgReading.calibration.timestamp + (60000 * 20)) > bgReading.timestamp)) {
                         lastBgReading.calibration.rawValueOverride(BgReading.weightedAverageRaw(lastBgReading.timestamp, bgReading.timestamp, lastBgReading.calibration.timestamp, lastBgReading.age_adjusted_raw_value, bgReading.age_adjusted_raw_value), context);
                     }
                 }
@@ -402,7 +410,7 @@ public class BgReading extends Model {
                 .execute();
     }
 
-    public static BgReading lastNoSenssor() {
+    public static BgReading LastNoSensor() {
         return new Select()
                 .from(BgReading.class)
                 .orderBy("_ID desc")
@@ -468,13 +476,6 @@ public class BgReading extends Model {
     //*******INSTANCE METHODS***********//
     public void perform_calculations() {
         Calibration calibration = Calibration.last();
-        if (calibration == null) {
-            Log.w(TAG, "perform_calculations NO CALIBRATION DATA, CANNOT CALCULATE CURRENT VALUES.");
-        } else {
-            calculated_value = ((calibration.slope * age_adjusted_raw_value) + calibration.intercept);
-            Log.w(TAG, "perform_calculations NEW VALUE CALCULATED AT: " + calculated_value);
-        }
-        save();
         find_new_curve();
         find_new_raw_curve();
         find_slope();
@@ -595,7 +596,7 @@ public class BgReading extends Model {
             save();
         } else {
             Log.w(TAG, "find_new_raw_curve Not enough data to calculate parabolic rates - assume static data");
-            BgReading latest_entry = BgReading.lastNoSenssor();
+            BgReading latest_entry = BgReading.LastNoSensor();
             ra = 0;
             rb = 0;
             rc = latest_entry.age_adjusted_raw_value;
@@ -607,6 +608,11 @@ public class BgReading extends Model {
         double relativeSlope = (rawB -  rawA)/(timeB - timeA);
         double relativeIntercept = rawA - (relativeSlope * timeA);
         return ((relativeSlope * calibrationTime) + relativeIntercept);
+    }
+
+    public double bgDifferenceFromLast(BgReading now){
+        BgReading lastReading = BgReading.last();
+        return (now.calculated_value - lastReading.calculated_value);
     }
 
     public String toS() {

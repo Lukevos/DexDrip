@@ -27,9 +27,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Created by stephenblack on 10/29/14.
- */
 @Table(name = "Calibration", id = BaseColumns._ID)
 public class Calibration extends Model {
     private final static String TAG = Calibration.class.getSimpleName();
@@ -509,7 +506,6 @@ public class Calibration extends Model {
         estimate_raw_at_time_of_calibration = rawValue;
         save();
         calculate_w_l_s();
-        //adjustRecentBgReadings();
         CalibrationSendQueue.addToQueue(this, context);
     }
 
@@ -551,7 +547,7 @@ public class Calibration extends Model {
         return new Select()
                 .from(Calibration.class)
                 .where("Sensor = ? ", sensor.getId())
-                .orderBy("_ID desc")
+                .orderBy("timestamp desc")
                 .executeSingle();
     }
 
@@ -573,7 +569,7 @@ public class Calibration extends Model {
                 .where("slope_confidence != 0")
                 .where("sensor_confidence != 0")
                 .where("timestamp > ?", (new Date().getTime() - (60000 * 60 * 24 * 4)))
-                .orderBy("bg asc")
+                .orderBy("bg desc")
                 .executeSingle();
         return calibration.bg;
     }
@@ -586,7 +582,7 @@ public class Calibration extends Model {
                 .where("slope_confidence != 0")
                 .where("sensor_confidence != 0")
                 .where("timestamp > ?", (new Date().getTime() - (60000 * 60 * 24 * 4)))
-                .orderBy("bg desc")
+                .orderBy("bg asc")
                 .executeSingle();
         return calibration.bg;
     }

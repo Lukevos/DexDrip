@@ -12,5 +12,5 @@ public interface Intents {
     String EXTRA_BG_SLOPE_NAME = "com.eveningoutpost.dexdrip.Extras.BgSlopeName";
     String EXTRA_SENSOR_BATTERY = "com.eveningoutpost.dexdrip.Extras.SensorBattery";
     String EXTRA_TIMESTAMP = "com.eveningoutpost.dexdrip.Extras.Time";
-
+    String ACTION_NEW_BG_ESTIMATE_NO_DATA = "com.eveningoutpost.dexdrip.BgEstimateNoData";
 }

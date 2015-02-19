@@ -11,14 +11,17 @@ import android.graphics.Paint;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.widget.DrawerLayout;
+import android.view.View;
 import android.widget.TextView;
 
 import com.eveningoutpost.dexdrip.Models.ActiveBluetoothDevice;
 import com.eveningoutpost.dexdrip.Models.BgReading;
 import com.eveningoutpost.dexdrip.Models.Calibration;
+import com.eveningoutpost.dexdrip.Services.DexCollectionService;
 import com.eveningoutpost.dexdrip.Services.WixelReader;
 import com.eveningoutpost.dexdrip.UtilityModels.BgGraphBuilder;
 import com.eveningoutpost.dexdrip.UtilityModels.CollectionServiceStarter;
+import com.eveningoutpost.dexdrip.UtilityModels.Intents;
 
 import java.text.DecimalFormat;
 import java.util.Date;
@@ -49,11 +52,13 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
 
     public BgGraphBuilder bgGraphBuilder;
     BroadcastReceiver _broadcastReceiver;
-    BroadcastReceiver bgReadingCreateReceiver;
+    //BroadcastReceiver bgReadingCreateReceiver;
+    private static Context mContext;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mContext = getApplicationContext();
         PreferenceManager.setDefaultValues(this, R.xml.pref_general, false);
         PreferenceManager.setDefaultValues(this, R.xml.pref_bg_notification, false);
         PreferenceManager.setDefaultValues(this, R.xml.pref_data_sync, false);
@@ -89,15 +94,24 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
                 if (intent.getAction().compareTo(Intent.ACTION_TIME_TICK) == 0) {
                     updateCurrentBgInfo();
                 }
+                if (intent.getAction().compareTo("com.eveningoutpost.dexdrip.DexCollectionService.SAVED_BG")==0) {
+                    updateCurrentBgInfo();
+                }
             }
         };
-
-        registerReceiver(_broadcastReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
+        IntentFilter intentFilter =new IntentFilter();
+        intentFilter.addAction(Intent.ACTION_TIME_TICK);
+        intentFilter.addAction("com.eveningoutpost.dexdrip.DexCollectionService.SAVED_BG");
+        registerReceiver(_broadcastReceiver, intentFilter);
         mNavigationDrawerFragment = (NavigationDrawerFragment) getFragmentManager().findFragmentById(R.id.navigation_drawer);
         mNavigationDrawerFragment.setUp(R.id.navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout), menu_name, this);
         holdViewport.set(0, 0, 0, 0);
         setupCharts();
         updateCurrentBgInfo();
+    }
+
+    public static Context getContext() {
+        return mContext;
     }
 
     public void setupCharts() {
@@ -180,7 +194,7 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
                 if (BgReading.latest(2).size() > 1) {
                     List<Calibration> calibrations = Calibration.latest(2);
                     if (calibrations.size() > 1) {
-                        if (calibrations.get(0).possible_bad != null && calibrations.get(0).possible_bad == true && calibrations.get(1).possible_bad != null && calibrations.get(1).possible_bad == false) {
+                        if (calibrations.get(0).possible_bad != null && calibrations.get(0).possible_bad == true && calibrations.get(1).possible_bad != null && calibrations.get(1).possible_bad != true) {
                             notificationText.setText("Possible bad calibration slope, please have a glass of water, wash hands, then recalibrate in a few!");
                         }
                         displayCurrentInfo();
@@ -214,6 +228,17 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
     public void displayCurrentInfo() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean predictBG = prefs.getBoolean("predictBG", false);
+        boolean isDexbridge = CollectionServiceStarter.isDexbridge(getApplicationContext());
+        byte bridgeBattery = DexCollectionService.getBridgeBattery();
+        final TextView dexbridgeBattery = (TextView)findViewById(R.id.textBridgeBattery);
+        if(isDexbridge && bridgeBattery != 0 ) {
+            dexbridgeBattery.setText("Bridge Battery: " + bridgeBattery + "%");
+            if(bridgeBattery < 50) dexbridgeBattery.setTextColor(Color.YELLOW);
+            if(bridgeBattery < 25) dexbridgeBattery.setTextColor(Color.RED); else dexbridgeBattery.setTextColor(Color.GREEN);
+            dexbridgeBattery.setVisibility(View.VISIBLE);
+        } else {
+            dexbridgeBattery.setVisibility(View.INVISIBLE);
+        }
         DecimalFormat df = new DecimalFormat("#");
         df.setMaximumFractionDigits(0);
         final TextView currentBgValueText = (TextView)findViewById(R.id.currentBgValueRealTime);
@@ -221,7 +246,12 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
         if ((currentBgValueText.getPaintFlags() & Paint.STRIKE_THRU_TEXT_FLAG) > 0) {
             currentBgValueText.setPaintFlags(currentBgValueText.getPaintFlags() & (~Paint.STRIKE_THRU_TEXT_FLAG));
         }
-        BgReading lastBgreading = BgReading.lastNoSenssor();
+        BgReading lastBgreading;
+        if(!predictBG) {
+            lastBgreading = BgReading.last();
+        } else {
+            lastBgreading = BgReading.LastNoSensor();
+        }
         if (lastBgreading != null) {
             double estimate = 0;
             if ((new Date().getTime()) - (60000 * 11) - lastBgreading.timestamp > 0) {
@@ -239,11 +269,11 @@ public class Home extends Activity implements NavigationDrawerFragment.Navigatio
                 if(!predictBG){
                     estimate=lastBgreading.calculated_value;
                     String stringEstimate = bgGraphBuilder.unitized_string(estimate);
-                    currentBgValueText.setText( stringEstimate + " " + BgReading.slopeArrow(lastBgreading.staticSlope()));
+                    currentBgValueText.setText( stringEstimate + " " + BgReading.slopeArrow(lastBgreading.staticSlope() * 6000));
                 } else {
                     estimate = BgReading.activePrediction();;
                     String stringEstimate = bgGraphBuilder.unitized_string(estimate);
-                    currentBgValueText.setText( stringEstimate + " " + BgReading.slopeArrow());
+                    currentBgValueText.setText( stringEstimate + " " + BgReading.slopeArrow(lastBgreading.activeSlope() * 6000));
                 }
             }
             if(bgGraphBuilder.unitized(estimate) <= bgGraphBuilder.lowMark) {
