@@ -78,6 +78,7 @@ public class DexCollectionService extends Service {
     private Queue<BluetoothGattCharacteristic> characteristicReadQueue = new LinkedList<BluetoothGattCharacteristic>();
     //int mStartMode;
     long lastPacketTime;
+    private static byte[] lastdata=null;
 
     private Context mContext = null;
 
@@ -274,7 +275,6 @@ public class DexCollectionService extends Service {
                                              BluetoothGattCharacteristic characteristic,
                                              int status) {
                 Log.w(TAG, "onCharacteristicRead entered.");
-                characteristicReadQueue.remove();
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
                 } else {
@@ -282,13 +282,17 @@ public class DexCollectionService extends Service {
                 }
                 if (characteristicReadQueue.size() > 0)
                     mBluetoothGatt.readCharacteristic(characteristicReadQueue.element());
+                characteristicReadQueue.remove();
                 Log.w(TAG, "onCharacteristicRead exited.");
             }
 
             @Override
             public void onCharacteristicChanged (BluetoothGatt gatt,
                 BluetoothGattCharacteristic characteristic){
-                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+                Log.w(TAG, "onCharacteristicChanged entered");
+                characteristicReadQueue.add(characteristic);
+                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristicReadQueue.poll());
+                //if(characteristicReadQueue.size()>0) characteristicReadQueue.remove();
             }
 
 /*            @Override
@@ -332,9 +336,18 @@ public class DexCollectionService extends Service {
                                  final BluetoothGattCharacteristic characteristic) {
         Log.w(TAG, "broadcastUpdate got action: "+action+", characteristic: "+characteristic.toString());
         final byte[] data = characteristic.getValue();
-
-        if (data != null && data.length > 0) {
+        if(lastdata != null){
+            if(data !=null && data.length >0 && !lastdata.equals(data)){
+                Log.v(TAG, "broadcastUpdate: new data.");
+                setSerialDataToTransmitterRawData(data, data.length);
+                lastdata = data;
+            } else if(lastdata.equals(data)){
+                Log.v(TAG,"broadcastUpdate: duplicate data, ignoring");
+                return;
+            }
+        } else if (data != null && data.length > 0) {
             setSerialDataToTransmitterRawData(data, data.length);
+            lastdata = data;
         }
     }
 
