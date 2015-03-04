@@ -557,12 +557,12 @@ public class DexCollectionService extends Service {
                 //we have a data packet.  Check to see if the TXID is what we are expecting.
                 Log.w(TAG, "setSerialDataToTransmitterRawData: Received Data packet");
                 //make sure we are not processing a packet we already have
-                if(secondsNow - lastPacketTime < 240000) {
+               /* if(secondsNow - lastPacketTime < 240000) {
                     Log.v(TAG, "setSerialDataToTransmitterRawData: Received Duplicate Packet.  Exiting.");
                     return;
                 } else {
                     lastPacketTime = secondsNow;
-                }
+                } */
                 if(len >= 0x11) {
                     //DexSrc starts at Byte 12 of a data packet.
                     DexSrc = tmpBuffer.getInt(12);
