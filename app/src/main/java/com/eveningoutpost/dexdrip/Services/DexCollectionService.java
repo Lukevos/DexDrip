@@ -47,6 +47,7 @@ import com.eveningoutpost.dexdrip.Models.TransmitterData;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedList;
@@ -289,7 +290,15 @@ public class DexCollectionService extends Service {
             @Override
             public void onCharacteristicChanged (BluetoothGatt gatt,
                 BluetoothGattCharacteristic characteristic){
+                final byte[] data;
                 Log.w(TAG, "onCharacteristicChanged entered");
+                data = characteristic.getValue();
+                if(lastdata == null) lastdata = characteristic.getValue();
+                if(Arrays.equals(lastdata, data)) {
+                    Log.w(TAG, "duplicate packet.  Ignoring");
+                    return;
+                }
+                Log.w(TAG, "onCharacteristicChanged: new packet.");
                 characteristicReadQueue.add(characteristic);
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristicReadQueue.poll());
                 //if(characteristicReadQueue.size()>0) characteristicReadQueue.remove();
@@ -337,7 +346,7 @@ public class DexCollectionService extends Service {
         Log.w(TAG, "broadcastUpdate got action: "+action+", characteristic: "+characteristic.toString());
         final byte[] data = characteristic.getValue();
         if(lastdata != null){
-            if(data !=null && data.length >0 && !lastdata.equals(data)){
+            if(data !=null && data.length >0 && !Arrays.equals(lastdata, data)){
                 Log.v(TAG, "broadcastUpdate: new data.");
                 setSerialDataToTransmitterRawData(data, data.length);
                 lastdata = data;
@@ -557,12 +566,12 @@ public class DexCollectionService extends Service {
                 //we have a data packet.  Check to see if the TXID is what we are expecting.
                 Log.w(TAG, "setSerialDataToTransmitterRawData: Received Data packet");
                 //make sure we are not processing a packet we already have
-               /* if(secondsNow - lastPacketTime < 240000) {
+                if(secondsNow - lastPacketTime < 60000) {
                     Log.v(TAG, "setSerialDataToTransmitterRawData: Received Duplicate Packet.  Exiting.");
                     return;
                 } else {
                     lastPacketTime = secondsNow;
-                } */
+                }
                 if(len >= 0x11) {
                     //DexSrc starts at Byte 12 of a data packet.
                     DexSrc = tmpBuffer.getInt(12);
