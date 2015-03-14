@@ -136,9 +136,9 @@ public class NightscoutUploader {
                 } else {
                     throw new Exception("Unexpected baseURI");
                 }
-
                 String postURL = baseURL + "entries";
                 Log.i(TAG, "postURL: " + postURL);
+                Log.i(TAG, "secret: " + secret);
 
                 HttpParams params = new BasicHttpParams();
                 HttpConnectionParams.setSoTimeout(params, SOCKET_TIMEOUT);
@@ -175,12 +175,16 @@ public class NightscoutUploader {
                     JSONObject json = new JSONObject();
 
                     try {
-                        if (apiVersion >= 1)
+                        if (apiVersion >= 1) {
+                            Log.v(TAG, "populating V1 entry");
                             populateV1APIBGEntry(json, record);
-                        else
+                        } else {
+                            Log.v(TAG, "populating Legacy entry");
                             populateLegacyAPIEntry(json, record);
+                        }
                     } catch (Exception e) {
                         Log.w(TAG, "Unable to populate entry");
+                        Log.v(TAG, e.getMessage());
                         continue;
                     }
 
@@ -198,6 +202,7 @@ public class NightscoutUploader {
                         httpclient.execute(post, responseHandler);
                     } catch (Exception e) {
                         Log.w(TAG, "Unable to populate entry");
+                        Log.v(TAG, e.getMessage());
                     }
                 }
 
@@ -209,6 +214,7 @@ public class NightscoutUploader {
                             populateV1APIMeterReadingEntry(json, record);
                         } catch (Exception e) {
                             Log.w(TAG, "Unable to populate entry");
+                            Log.v(TAG, e.getMessage());
                             continue;
                         }
 
@@ -225,6 +231,7 @@ public class NightscoutUploader {
                             httpclient.execute(post, responseHandler);
                         } catch (Exception e) {
                             Log.w(TAG, "Unable to post data");
+                            Log.v(TAG, e.getMessage());
                         }
                     }
                 }
@@ -238,6 +245,7 @@ public class NightscoutUploader {
                             populateV1APICalibrationEntry(json, calRecord);
                         } catch (Exception e) {
                             Log.w(TAG, "Unable to populate entry");
+                            Log.v(TAG, e.getMessage());
                             continue;
                         }
 
@@ -254,6 +262,7 @@ public class NightscoutUploader {
                             httpclient.execute(post, responseHandler);
                         } catch (Exception e) {
                             Log.w(TAG, "Unable to post data");
+                            Log.v(TAG, e.getMessage());
                         }
                     }
                 }
@@ -263,6 +272,7 @@ public class NightscoutUploader {
 
             } catch (Exception e) {
                 Log.w(TAG, "Unable to post data");
+                Log.v(TAG, e.getMessage());
             }
         }
 
