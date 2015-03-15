@@ -75,8 +75,8 @@ public class PebbleSync {
         dictionary.addUint32(RECORD_TIME_KEY, (int) (((mBgReading.timestamp + offsetFromUTC) / 1000)));
         dictionary.addUint32(PHONE_TIME_KEY, (int) ((new Date().getTime() +offsetFromUTC) / 1000));
         dictionary.addString(BG_DELTA_KEY, bgDelta());
-        dictionary.addString(UPLOADER_BATTERY_KEY, DexCollectionService.getBridgeBatteryAsString());
-        dictionary.addString(NAME_KEY, "Bridge");
+        dictionary.addString(UPLOADER_BATTERY_KEY, phoneBattery());
+        dictionary.addString(NAME_KEY, " ");
         return dictionary;
     }
 
@@ -94,11 +94,11 @@ public class PebbleSync {
     public String bgDelta() {
         //String deltaString = bgGraphBuilder.unitized_string((mBgReading.calculated_value_slope * (5 * 60 * 1000)));
         String deltaString;
-        if((PreferenceManager.getDefaultSharedPreferences(mContext).getString("units","mg/dl").compareTo("mg/dl") == 0)) {
+    //    if((PreferenceManager.getDefaultSharedPreferences(mContext).getString("units","mg/dl").compareTo("mg/dl") == 0)) {
             deltaString = String.format("%.0f", mBgReading.calculated_value_slope * 360000);
-        } else {
-            deltaString = String.format("%.1f", (mBgReading.calculated_value_slope * 360000)*Constants.MGDL_TO_MMOLL);
-        }
+     //   } else {
+      //      deltaString = String.format("%.1f", (mBgReading.calculated_value_slope * 360000)*Constants.MGDL_TO_MMOLL);
+     //   }
         //deltaString = bgGraphBuilder.unitized_string((mBgReading.calculated_value_slope * 360000));
 
         Log.v("PebbleSync","bgDelta: "+ deltaString);
